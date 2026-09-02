@@ -103,7 +103,7 @@ function authPreambleRule(doc: FlowsDocument): string {
   if (!doc.auth) return ""
   const parts: string[] = []
   parts.push(`0. Right after connecting, set a desktop viewport — await page.setViewportSize({ width: 1440, height: 900 }) — login controls and headers are routinely hidden below desktop breakpoints.`)
-  parts.push(`1. Dismiss blocking dialogs: if a [role="dialog"][aria-modal="true"] is visible, click its button matching /accept all|accept|agree|got it|close|dismiss|later/i (fall back to pressing Escape) and wait for the dialog to detach. Repeat once if it reopens.`)
+  parts.push(`1. Consent dialogs re-open on navigation until accepted: on the first page load, if a [role="dialog"][aria-modal="true"] is visible, click its ACCEPT-style button (/accept all|accept|agree|got it/i — accepting stores the choice; use /close|dismiss|later/ or Escape only as fallback) and wait for it to detach. Before any later click, if such a dialog is visible again, accept it the same way first — a modal dialog silently intercepts every pointer event on the page.`)
   if (doc.auth.gate) {
     parts.push(`1. Site gate: await page.goto(process.env.TARGET_URL!); if the URL path matches /${doc.auth.gate.urlPattern}/i, fill the first ${doc.auth.gate.input} with process.env.SITE_PASSWORD!, click the first ${doc.auth.gate.submit}, and wait until the path no longer matches.`)
   }
