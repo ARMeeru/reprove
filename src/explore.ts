@@ -291,7 +291,23 @@ try {
       }
       await page.locator(GATE_INPUT).first().fill(sitePassword, { timeout: 10_000 })
       await page.locator(GATE_SUBMIT).first().click({ timeout: 10_000 })
-      await page.waitForURL((u) => !GATE_PATH.test(u.pathname), { timeout: 20_000 })
+      // "load" can hang on third-party scripts in a cloud browser; the gate
+      // page itself hard-navigates on success, so domcontentloaded is enough.
+      try {
+        await page.waitForURL((u) => !GATE_PATH.test(u.pathname), {
+          timeout: 30_000,
+          waitUntil: "domcontentloaded",
+        })
+      } catch (err) {
+        const visible = await page
+          .locator("text=/incorrect|error|wrong|invalid|try again/i")
+          .first()
+          .textContent({ timeout: 2_000 })
+          .catch(() => "")
+        throw new Error(
+          `site gate did not navigate past ${page.url()} — ${visible?.trim() || "no visible error"}`,
+        )
+      }
       await snapshot()
       auth.gate = { urlPattern: "site-login", input: GATE_INPUT, submit: GATE_SUBMIT }
       console.log(`bootstrap: site gate passed -> ${page.url()}`)
