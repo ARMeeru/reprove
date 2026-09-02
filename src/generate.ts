@@ -99,6 +99,22 @@ function needsLogin(flow: Flow): boolean {
   })
 }
 
+function authPreambleRule(doc: FlowsDocument): string {
+  if (!doc.auth) return ""
+  const parts: string[] = []
+  if (doc.auth.gate) {
+    parts.push(`1. Site gate: await page.goto(process.env.TARGET_URL!); if the URL path matches /${doc.auth.gate.urlPattern}/i, fill the first ${doc.auth.gate.input} with process.env.SITE_PASSWORD!, click the first ${doc.auth.gate.submit}, and wait until the path no longer matches.`)
+  }
+  if (doc.auth.login) {
+    const gateStep = doc.auth.gate ? " (after the gate step)" : ""
+    parts.push(`${parts.length + 1}. Login${gateStep}: click the header trigger (${doc.auth.login.trigger} filtered to text matching /^\\s*(log ?in|sign ?in)\\s*$/i) if the email input is not already visible; fill ${doc.auth.login.email} with process.env.AUTH_EMAIL! and the same form's ${doc.auth.login.password} with process.env.AUTH_PASSWORD!; click the form's ${doc.auth.login.submit}; wait for that form to detach.`)
+  }
+  return `
+- This site sits behind auth that the explorer passed using env-provided credentials. EVERY spec begins with this exact preamble, reading values from process.env — never hardcode credentials, never log their values:
+${parts.join("\n")}
+- Credentials come only from the env vars above; do not take fill values from sibling flows for the auth preamble.`
+}
+
 function systemPrompt(doc: FlowsDocument): string {
   return `You write one Playwright spec file for a QA flow.
 Rules:
@@ -118,7 +134,7 @@ Rules:
 - Specs start from a fresh browser. If the flow begins on a post-login page, prepend login using fill values from other flows in the document (never invent credentials).
 - If a logout/sidebar link is not visible, open the burger/menu button first.
 - After every navigation or click that changes the page, wait for the next locator to be visible before using it.
-- Never goto a deep path that requires session state; drive there with UI actions from TARGET_URL.
+- Never goto a deep path that requires session state; drive there with UI actions from TARGET_URL.${authPreambleRule(doc)}
 - TARGET_URL origin is ${doc.site.origin}.`
 }
 

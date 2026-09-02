@@ -48,6 +48,11 @@ export type PageInventory = {
   navigation: Interactive[]
 }
 
+export type AuthBootstrap = {
+  gate?: { urlPattern: string; input: string; submit: string }
+  login?: { trigger: string; email: string; password: string; submit: string }
+}
+
 export type FlowsDocument = {
   site: {
     url: string
@@ -55,6 +60,7 @@ export type FlowsDocument = {
     title?: string
     exploredAt: string
   }
+  auth?: AuthBootstrap
   pages: PageInventory[]
   flows: Flow[]
 }
@@ -75,6 +81,36 @@ export const FLOWS_SCHEMA = {
         origin: { type: "string" },
         title: { type: "string" },
         exploredAt: { type: "string" },
+      },
+    },
+    auth: {
+      // Recorded by the explore bootstrap when it passed a site gate and/or an
+      // email/password login using env-provided credentials. Secrets never
+      // appear here — only the selectors that worked.
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        gate: {
+          type: "object",
+          additionalProperties: false,
+          required: ["urlPattern", "input", "submit"],
+          properties: {
+            urlPattern: { type: "string" },
+            input: { type: "string" },
+            submit: { type: "string" },
+          },
+        },
+        login: {
+          type: "object",
+          additionalProperties: false,
+          required: ["trigger", "email", "password", "submit"],
+          properties: {
+            trigger: { type: "string" },
+            email: { type: "string" },
+            password: { type: "string" },
+            submit: { type: "string" },
+          },
+        },
       },
     },
     pages: { type: "array", items: { $ref: "#/$defs/page" } },

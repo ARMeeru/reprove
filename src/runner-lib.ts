@@ -25,6 +25,16 @@ export function errMsg(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
 
+// Auth credentials the specs' env-var preamble reads. Forwarded into the
+// sandbox guest only when present; the Solari API key never joins them.
+export function authGuestEnv(): Record<string, string> {
+  const env: Record<string, string> = {}
+  if (process.env.SITE_PASSWORD) env.SITE_PASSWORD = process.env.SITE_PASSWORD
+  if (process.env.AUTH_EMAIL) env.AUTH_EMAIL = process.env.AUTH_EMAIL
+  if (process.env.AUTH_PASSWORD) env.AUTH_PASSWORD = process.env.AUTH_PASSWORD
+  return env
+}
+
 export type Clients = { browser: Solari; pt: SolariClient }
 
 export function makeClients(): Clients {

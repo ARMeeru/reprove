@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises"
 import Anthropic from "@anthropic-ai/sdk"
 import { Solari } from "@solarisdk/browser"
-import { validateFlows, type FlowsDocument, type PageInventory } from "./schema.ts"
+import { validateFlows, type AuthBootstrap, type FlowsDocument, type PageInventory } from "./schema.ts"
 
 const MODEL = "claude-sonnet-5"
 const WALL_MS = 10 * 60_000
@@ -250,6 +250,59 @@ try {
       return d
     }
 
+    // Auth bootstrap (optional): pass a site password gate and/or an
+    // email/password login with env-provided credentials BEFORE the agent
+    // explores. Secrets stay out of the model context and out of flows.json;
+    // only the selectors that worked are recorded for the spec generator.
+    const auth: AuthBootstrap = {}
+    const sitePassword = process.env.SITE_PASSWORD || ""
+    const authEmail = process.env.AUTH_EMAIL || ""
+    const authPassword = process.env.AUTH_PASSWORD || ""
+    const GATE_PATH = /site-login|site-password|gate/i
+    const GATE_INPUT = 'input[type="password"]'
+    const GATE_SUBMIT = 'form button[type="submit"], form button:not([type="button"])'
+    const LOGIN_TRIGGER = 'header button, header a'
+    const LOGIN_EMAIL = 'input[name="email"], input[type="email"]'
+    await page.goto(startUrl, { waitUntil: "domcontentloaded", timeout: 20_000 })
+    if (GATE_PATH.test(new URL(page.url()).pathname)) {
+      if (!sitePassword) {
+        throw new Error(`landed on a site gate (${page.url()}) but SITE_PASSWORD is not set`)
+      }
+      await page.locator(GATE_INPUT).first().fill(sitePassword, { timeout: 10_000 })
+      await page.locator(GATE_SUBMIT).first().click({ timeout: 10_000 })
+      await page.waitForURL((u) => !GATE_PATH.test(u.pathname), { timeout: 20_000 })
+      await snapshot()
+      auth.gate = { urlPattern: "site-login", input: GATE_INPUT, submit: GATE_SUBMIT }
+      console.log(`bootstrap: site gate passed -> ${page.url()}`)
+    } else {
+      await snapshot()
+    }
+    if (authEmail && authPassword) {
+      const email = page.locator(LOGIN_EMAIL).first()
+      if (!(await email.isVisible().catch(() => false))) {
+        await page
+          .locator(LOGIN_TRIGGER)
+          .filter({ hasText: /^\s*(log ?in|sign ?in)\s*$/i })
+          .first()
+          .click({ timeout: 10_000 })
+      }
+      await email.waitFor({ state: "visible", timeout: 15_000 })
+      await email.fill(authEmail)
+      const form = email.locator("xpath=ancestor::form").first()
+      await form.locator('input[type="password"]').first().fill(authPassword)
+      await form.locator('button[type="submit"], button:not([type="button"])').first().click()
+      await form.waitFor({ state: "detached", timeout: 45_000 })
+      await page.waitForLoadState("domcontentloaded").catch(() => {})
+      auth.login = {
+        trigger: LOGIN_TRIGGER,
+        email: LOGIN_EMAIL,
+        password: 'input[type="password"]',
+        submit: 'button[type="submit"]',
+      }
+      await snapshot()
+      console.log(`bootstrap: logged in -> ${page.url()}`)
+    }
+
     const runTool = async (name: string, input: Record<string, unknown>): Promise<string> => {
       if (Date.now() >= deadline) return JSON.stringify({ error: "wall-clock budget exhausted" })
       try {
@@ -425,6 +478,7 @@ try {
           title: observed[0]?.title,
           exploredAt: new Date().toISOString(),
         },
+        ...(Object.keys(auth).length ? { auth } : {}),
         pages: observed,
         flows: flows as FlowsDocument["flows"],
       }
