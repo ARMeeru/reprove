@@ -242,20 +242,20 @@ async function generateOne(flow: Flow, priorError?: string): Promise<string | nu
 
 if (skipGenerate) {
   for (const flow of flows) written.push(join(outDir, `${flow.id}.spec.ts`))
-} else if (only) {
-  // --only regenerates in place and owns nothing but its own flow id;
-  // sweeping here would delete sibling specs from other --only runs.
 } else {
   // A full generation owns the out-dir: remove specs left over from earlier
   // generations (a stale spec still executes and its failures masquerade as
-  // findings of this run).
-  const existing = (await readdir(outDir).catch(() => [] as string[])).filter((f) => f.endsWith(".spec.ts"))
-  const currentIds = new Set(doc.flows.map((f) => f.id))
-  for (const f of existing) {
-    const id = f.replace(/\.spec\.ts$/, "")
-    if (!currentIds.has(id)) {
-      await rm(join(outDir, f), { force: true })
-      log.push(`STALE-REMOVED ${f}: flow id not in current flows.json`)
+  // findings of this run). --only regenerates in place and sweeps nothing —
+  // sweeping there would delete sibling specs from other --only runs.
+  if (!only) {
+    const existing = (await readdir(outDir).catch(() => [] as string[])).filter((f) => f.endsWith(".spec.ts"))
+    const currentIds = new Set(doc.flows.map((f) => f.id))
+    for (const f of existing) {
+      const id = f.replace(/\.spec\.ts$/, "")
+      if (!currentIds.has(id)) {
+        await rm(join(outDir, f), { force: true })
+        log.push(`STALE-REMOVED ${f}: flow id not in current flows.json`)
+      }
     }
   }
   for (const flow of flows) {
