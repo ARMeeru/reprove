@@ -590,10 +590,17 @@ ${JSON.stringify(compact)}`,
       const why = err instanceof Error ? err.message : String(err)
       console.log(`flows invalid, retrying: ${why}`)
       messages.push({ role: "assistant", content: final.content })
-      messages.push({
-        role: "user",
-        content: `emit_flows failed validation: ${why}. Call emit_flows again with a corrected flows array.`,
-      })
+      // The retried response may carry tool_use blocks; each needs a
+      // tool_result in the next user message or the API rejects the call.
+      const retryResults: Anthropic.ToolResultBlockParam[] = final.content
+        .filter((b): b is Anthropic.ToolUseBlock => b.type === "tool_use")
+        .map((b) => ({
+          type: "tool_result" as const,
+          tool_use_id: b.id,
+          is_error: true,
+          content: `emit_flows failed validation: ${why}. Call emit_flows again with a corrected flows array.`,
+        }))
+      messages.push({ role: "user", content: retryResults })
       final = await anthropic.messages.create({
         model: MODEL,
         max_tokens: 8192,
