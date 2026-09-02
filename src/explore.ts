@@ -263,7 +263,28 @@ try {
     const GATE_SUBMIT = 'form button[type="submit"], form button:not([type="button"])'
     const LOGIN_TRIGGER = 'header button, header a'
     const LOGIN_EMAIL = 'input[name="email"], input[type="email"]'
+    // Consent/promo dialogs mount over the page and intercept pointer events
+    // (a Radix modal eats the gate submit click otherwise). Accept or escape
+    // them before interacting with anything else.
+    const dismissDialogs = async () => {
+      for (let i = 0; i < 2; i++) {
+        const dialog = page.locator('[role="dialog"][aria-modal="true"]').first()
+        if (!(await dialog.isVisible().catch(() => false))) return
+        const accept = dialog
+          .locator("button")
+          .filter({ hasText: /accept all|accept|agree|got it|close|dismiss|later/i })
+          .first()
+        if (await accept.isVisible().catch(() => false)) {
+          await accept.click({ timeout: 5000 }).catch(() => {})
+        } else {
+          await page.keyboard.press("Escape").catch(() => {})
+          await page.waitForTimeout(500)
+        }
+        await dialog.waitFor({ state: "detached", timeout: 5000 }).catch(() => {})
+      }
+    }
     await page.goto(startUrl, { waitUntil: "domcontentloaded", timeout: 20_000 })
+    await dismissDialogs()
     if (GATE_PATH.test(new URL(page.url()).pathname)) {
       if (!sitePassword) {
         throw new Error(`landed on a site gate (${page.url()}) but SITE_PASSWORD is not set`)
@@ -278,6 +299,7 @@ try {
       await snapshot()
     }
     if (authEmail && authPassword) {
+      await dismissDialogs()
       const email = page.locator(LOGIN_EMAIL).first()
       if (!(await email.isVisible().catch(() => false))) {
         await page

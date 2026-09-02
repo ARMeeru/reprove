@@ -102,6 +102,7 @@ function needsLogin(flow: Flow): boolean {
 function authPreambleRule(doc: FlowsDocument): string {
   if (!doc.auth) return ""
   const parts: string[] = []
+  parts.push(`0. Dismiss blocking dialogs: if a [role="dialog"][aria-modal="true"] is visible, click its button matching /accept all|accept|agree|got it|close|dismiss|later/i (fall back to pressing Escape) and wait for the dialog to detach. Repeat once if it reopens.`)
   if (doc.auth.gate) {
     parts.push(`1. Site gate: await page.goto(process.env.TARGET_URL!); if the URL path matches /${doc.auth.gate.urlPattern}/i, fill the first ${doc.auth.gate.input} with process.env.SITE_PASSWORD!, click the first ${doc.auth.gate.submit}, and wait until the path no longer matches.`)
   }
