@@ -235,19 +235,22 @@ async function generateOne(flow: Flow, priorError?: string): Promise<string | nu
       return file
     }
     lastErr = tscErr
-    console.log(`  attempt ${attempt} tsc failed`)
+    console.log(`  attempt ${attempt} tsc failed: ${tscErr.slice(0, 400)}`)
   }
   return null
 }
 
 if (skipGenerate) {
   for (const flow of flows) written.push(join(outDir, `${flow.id}.spec.ts`))
+} else if (only) {
+  // --only regenerates in place and owns nothing but its own flow id;
+  // sweeping here would delete sibling specs from other --only runs.
 } else {
   // A full generation owns the out-dir: remove specs left over from earlier
   // generations (a stale spec still executes and its failures masquerade as
-  // findings of this run). --only regenerates in place and cleans nothing.
+  // findings of this run).
   const existing = (await readdir(outDir).catch(() => [] as string[])).filter((f) => f.endsWith(".spec.ts"))
-  const currentIds = new Set(flows.map((f) => f.id))
+  const currentIds = new Set(doc.flows.map((f) => f.id))
   for (const f of existing) {
     const id = f.replace(/\.spec\.ts$/, "")
     if (!currentIds.has(id)) {
