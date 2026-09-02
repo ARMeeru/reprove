@@ -1,0 +1,602 @@
+{
+  "site": {
+    "url": "https://demo-storefront-buggy.vercel.app",
+    "origin": "https://demo-storefront-buggy.vercel.app",
+    "title": "Demo Storefront",
+    "exploredAt": "2026-09-01T14:41:05.094Z"
+  },
+  "pages": [
+    {
+      "url": "https://demo-storefront-buggy.vercel.app/",
+      "title": "Demo Storefront",
+      "forms": [],
+      "buttons": [
+        {
+          "selector": "[data-test=\"add-to-cart-tshirt\"]",
+          "text": "Add to cart",
+          "role": "button"
+        },
+        {
+          "selector": "[data-test=\"add-to-cart-mug\"]",
+          "text": "Add to cart",
+          "role": "button"
+        },
+        {
+          "selector": "[data-test=\"add-to-cart-poster\"]",
+          "text": "Add to cart",
+          "role": "button"
+        },
+        {
+          "selector": "[data-test=\"add-to-cart-hoodie\"]",
+          "text": "Add to cart",
+          "role": "button"
+        },
+        {
+          "selector": "[data-test=\"add-to-cart-sticker\"]",
+          "text": "Add to cart",
+          "role": "button"
+        },
+        {
+          "selector": "[data-test=\"add-to-cart-cap\"]",
+          "text": "Add to cart",
+          "role": "button"
+        }
+      ],
+      "links": [
+        {
+          "selector": "[data-test=\"nav-home\"]",
+          "text": "Demo Storefront",
+          "href": "https://demo-storefront-buggy.vercel.app/",
+          "role": "link"
+        },
+        {
+          "selector": "[data-test=\"nav-contact\"]",
+          "text": "Contact",
+          "href": "https://demo-storefront-buggy.vercel.app/contact",
+          "role": "link"
+        },
+        {
+          "selector": "[data-test=\"nav-cart\"]",
+          "text": "Cart (1)",
+          "href": "https://demo-storefront-buggy.vercel.app/cart",
+          "role": "link"
+        }
+      ],
+      "navigation": [
+        {
+          "selector": "[data-test=\"nav-home\"]",
+          "text": "Demo Storefront",
+          "href": "https://demo-storefront-buggy.vercel.app/",
+          "role": "link"
+        },
+        {
+          "selector": "[data-test=\"nav-contact\"]",
+          "text": "Contact",
+          "href": "https://demo-storefront-buggy.vercel.app/contact",
+          "role": "link"
+        },
+        {
+          "selector": "[data-test=\"nav-cart\"]",
+          "text": "Cart (1)",
+          "href": "https://demo-storefront-buggy.vercel.app/cart",
+          "role": "link"
+        }
+      ]
+    },
+    {
+      "url": "https://demo-storefront-buggy.vercel.app/contact",
+      "title": "Demo Storefront",
+      "forms": [
+        {
+          "selector": "[data-test=\"contact-form\"]",
+          "fields": [
+            {
+              "name": "cname",
+              "type": "text",
+              "selector": "[data-test=\"contact-name\"]",
+              "label": "Name"
+            },
+            {
+              "name": "cemail",
+              "type": "email",
+              "selector": "[data-test=\"contact-email\"]",
+              "label": "Email"
+            },
+            {
+              "name": "cmessage",
+              "type": "textarea",
+              "selector": "[data-test=\"contact-message\"]",
+              "label": "Message"
+            }
+          ],
+          "submit": "[data-test=\"contact-submit\"]"
+        }
+      ],
+      "buttons": [
+        {
+          "selector": "[data-test=\"contact-submit\"]",
+          "text": "Send message",
+          "role": "button"
+        }
+      ],
+      "links": [
+        {
+          "selector": "[data-test=\"nav-home\"]",
+          "text": "Demo Storefront",
+          "href": "https://demo-storefront-buggy.vercel.app/",
+          "role": "link"
+        },
+        {
+          "selector": "[data-test=\"nav-contact\"]",
+          "text": "Contact",
+          "href": "https://demo-storefront-buggy.vercel.app/contact",
+          "role": "link"
+        },
+        {
+          "selector": "[data-test=\"nav-cart\"]",
+          "text": "Cart (0)",
+          "href": "https://demo-storefront-buggy.vercel.app/cart",
+          "role": "link"
+        }
+      ],
+      "navigation": [
+        {
+          "selector": "[data-test=\"nav-home\"]",
+          "text": "Demo Storefront",
+          "href": "https://demo-storefront-buggy.vercel.app/",
+          "role": "link"
+        },
+        {
+          "selector": "[data-test=\"nav-contact\"]",
+          "text": "Contact",
+          "href": "https://demo-storefront-buggy.vercel.app/contact",
+          "role": "link"
+        },
+        {
+          "selector": "[data-test=\"nav-cart\"]",
+          "text": "Cart (0)",
+          "href": "https://demo-storefront-buggy.vercel.app/cart",
+          "role": "link"
+        }
+      ]
+    },
+    {
+      "url": "https://demo-storefront-buggy.vercel.app/login",
+      "title": "Demo Storefront",
+      "forms": [],
+      "buttons": [],
+      "links": [
+        {
+          "selector": "[data-test=\"nav-home\"]",
+          "text": "Demo Storefront",
+          "href": "https://demo-storefront-buggy.vercel.app/",
+          "role": "link"
+        },
+        {
+          "selector": "[data-test=\"nav-contact\"]",
+          "text": "Contact",
+          "href": "https://demo-storefront-buggy.vercel.app/contact",
+          "role": "link"
+        },
+        {
+          "selector": "[data-test=\"nav-cart\"]",
+          "text": "Cart (0)",
+          "href": "https://demo-storefront-buggy.vercel.app/cart",
+          "role": "link"
+        }
+      ],
+      "navigation": [
+        {
+          "selector": "[data-test=\"nav-home\"]",
+          "text": "Demo Storefront",
+          "href": "https://demo-storefront-buggy.vercel.app/",
+          "role": "link"
+        },
+        {
+          "selector": "[data-test=\"nav-contact\"]",
+          "text": "Contact",
+          "href": "https://demo-storefront-buggy.vercel.app/contact",
+          "role": "link"
+        },
+        {
+          "selector": "[data-test=\"nav-cart\"]",
+          "text": "Cart (0)",
+          "href": "https://demo-storefront-buggy.vercel.app/cart",
+          "role": "link"
+        }
+      ]
+    },
+    {
+      "url": "https://demo-storefront-buggy.vercel.app/cart",
+      "title": "Demo Storefront",
+      "forms": [],
+      "buttons": [
+        {
+          "selector": "[data-test=\"checkout\"]",
+          "text": "Checkout",
+          "role": "button"
+        }
+      ],
+      "links": [
+        {
+          "selector": "[data-test=\"nav-home\"]",
+          "text": "Demo Storefront",
+          "href": "https://demo-storefront-buggy.vercel.app/",
+          "role": "link"
+        },
+        {
+          "selector": "[data-test=\"nav-contact\"]",
+          "text": "Contact",
+          "href": "https://demo-storefront-buggy.vercel.app/contact",
+          "role": "link"
+        },
+        {
+          "selector": "[data-test=\"nav-cart\"]",
+          "text": "Cart (1)",
+          "href": "https://demo-storefront-buggy.vercel.app/cart",
+          "role": "link"
+        },
+        {
+          "selector": "[data-test=\"continue-shopping\"]",
+          "text": "Continue shopping",
+          "href": "https://demo-storefront-buggy.vercel.app/checkout",
+          "role": "link"
+        }
+      ],
+      "navigation": [
+        {
+          "selector": "[data-test=\"nav-home\"]",
+          "text": "Demo Storefront",
+          "href": "https://demo-storefront-buggy.vercel.app/",
+          "role": "link"
+        },
+        {
+          "selector": "[data-test=\"nav-contact\"]",
+          "text": "Contact",
+          "href": "https://demo-storefront-buggy.vercel.app/contact",
+          "role": "link"
+        },
+        {
+          "selector": "[data-test=\"nav-cart\"]",
+          "text": "Cart (1)",
+          "href": "https://demo-storefront-buggy.vercel.app/cart",
+          "role": "link"
+        }
+      ]
+    },
+    {
+      "url": "https://demo-storefront-buggy.vercel.app/checkout",
+      "title": "Demo Storefront",
+      "forms": [
+        {
+          "selector": "form:has-text(\"Full nameAddressEmailPlace order\")",
+          "fields": [
+            {
+              "name": "name",
+              "type": "text",
+              "selector": "[data-test=\"name\"]",
+              "label": "Full name"
+            },
+            {
+              "name": "address",
+              "type": "text",
+              "selector": "[data-test=\"address\"]",
+              "label": "Address"
+            },
+            {
+              "name": "email",
+              "type": "email",
+              "selector": "[data-test=\"email\"]",
+              "label": "Email"
+            }
+          ],
+          "submit": "[data-test=\"place-order\"]"
+        }
+      ],
+      "buttons": [
+        {
+          "selector": "[data-test=\"place-order\"]",
+          "text": "Place order",
+          "role": "button"
+        }
+      ],
+      "links": [
+        {
+          "selector": "[data-test=\"nav-home\"]",
+          "text": "Demo Storefront",
+          "href": "https://demo-storefront-buggy.vercel.app/",
+          "role": "link"
+        },
+        {
+          "selector": "[data-test=\"nav-contact\"]",
+          "text": "Contact",
+          "href": "https://demo-storefront-buggy.vercel.app/contact",
+          "role": "link"
+        },
+        {
+          "selector": "[data-test=\"nav-cart\"]",
+          "text": "Cart (2)",
+          "href": "https://demo-storefront-buggy.vercel.app/cart",
+          "role": "link"
+        }
+      ],
+      "navigation": [
+        {
+          "selector": "[data-test=\"nav-home\"]",
+          "text": "Demo Storefront",
+          "href": "https://demo-storefront-buggy.vercel.app/",
+          "role": "link"
+        },
+        {
+          "selector": "[data-test=\"nav-contact\"]",
+          "text": "Contact",
+          "href": "https://demo-storefront-buggy.vercel.app/contact",
+          "role": "link"
+        },
+        {
+          "selector": "[data-test=\"nav-cart\"]",
+          "text": "Cart (2)",
+          "href": "https://demo-storefront-buggy.vercel.app/cart",
+          "role": "link"
+        }
+      ]
+    },
+    {
+      "url": "https://demo-storefront-buggy.vercel.app/order",
+      "title": "Demo Storefront",
+      "forms": [],
+      "buttons": [],
+      "links": [
+        {
+          "selector": "[data-test=\"nav-home\"]",
+          "text": "Demo Storefront",
+          "href": "https://demo-storefront-buggy.vercel.app/",
+          "role": "link"
+        },
+        {
+          "selector": "[data-test=\"nav-contact\"]",
+          "text": "Contact",
+          "href": "https://demo-storefront-buggy.vercel.app/contact",
+          "role": "link"
+        },
+        {
+          "selector": "[data-test=\"nav-cart\"]",
+          "text": "Cart (0)",
+          "href": "https://demo-storefront-buggy.vercel.app/cart",
+          "role": "link"
+        },
+        {
+          "selector": "[data-test=\"back-to-products\"]",
+          "text": "Back to products",
+          "href": "https://demo-storefront-buggy.vercel.app/",
+          "role": "link"
+        }
+      ],
+      "navigation": [
+        {
+          "selector": "[data-test=\"nav-home\"]",
+          "text": "Demo Storefront",
+          "href": "https://demo-storefront-buggy.vercel.app/",
+          "role": "link"
+        },
+        {
+          "selector": "[data-test=\"nav-contact\"]",
+          "text": "Contact",
+          "href": "https://demo-storefront-buggy.vercel.app/contact",
+          "role": "link"
+        },
+        {
+          "selector": "[data-test=\"nav-cart\"]",
+          "text": "Cart (0)",
+          "href": "https://demo-storefront-buggy.vercel.app/cart",
+          "role": "link"
+        }
+      ]
+    }
+  ],
+  "flows": [
+    {
+      "id": "flow-add-to-cart",
+      "intent": "Add products to cart from the home page and verify cart badge/contents update",
+      "actions": [
+        {
+          "type": "goto",
+          "url": "https://demo-storefront-buggy.vercel.app/",
+          "evidence": {
+            "url": "https://demo-storefront-buggy.vercel.app/"
+          }
+        },
+        {
+          "type": "click",
+          "selector": "[data-test=\"add-to-cart-tshirt\"]",
+          "evidence": {
+            "url": "https://demo-storefront-buggy.vercel.app/",
+            "selector": "[data-test=\"add-to-cart-tshirt\"]",
+            "observedText": "Add to cart"
+          }
+        },
+        {
+          "type": "click",
+          "selector": "[data-test=\"add-to-cart-mug\"]",
+          "evidence": {
+            "url": "https://demo-storefront-buggy.vercel.app/",
+            "selector": "[data-test=\"add-to-cart-mug\"]",
+            "observedText": "Add to cart"
+          }
+        },
+        {
+          "type": "click",
+          "selector": "[data-test=\"nav-cart\"]",
+          "evidence": {
+            "url": "https://demo-storefront-buggy.vercel.app/",
+            "selector": "[data-test=\"nav-cart\"]",
+            "observedText": "Cart (1)"
+          }
+        }
+      ],
+      "evidence": {
+        "url": "https://demo-storefront-buggy.vercel.app/cart",
+        "selector": "[data-test=\"checkout\"]",
+        "observedText": "Checkout"
+      }
+    },
+    {
+      "id": "flow-checkout-place-order",
+      "intent": "Complete checkout by filling shipping details and placing an order, then view confirmation",
+      "actions": [
+        {
+          "type": "goto",
+          "url": "https://demo-storefront-buggy.vercel.app/checkout",
+          "evidence": {
+            "url": "https://demo-storefront-buggy.vercel.app/checkout"
+          }
+        },
+        {
+          "type": "fill",
+          "selector": "[data-test=\"name\"]",
+          "value": "Jane Doe",
+          "evidence": {
+            "url": "https://demo-storefront-buggy.vercel.app/checkout",
+            "selector": "[data-test=\"name\"]",
+            "observedText": "Full name"
+          }
+        },
+        {
+          "type": "fill",
+          "selector": "[data-test=\"address\"]",
+          "value": "123 Main St, Springfield",
+          "evidence": {
+            "url": "https://demo-storefront-buggy.vercel.app/checkout",
+            "selector": "[data-test=\"address\"]",
+            "observedText": "Address"
+          }
+        },
+        {
+          "type": "fill",
+          "selector": "[data-test=\"email\"]",
+          "value": "jane.doe@example.com",
+          "evidence": {
+            "url": "https://demo-storefront-buggy.vercel.app/checkout",
+            "selector": "[data-test=\"email\"]",
+            "observedText": "Email"
+          }
+        },
+        {
+          "type": "click",
+          "selector": "[data-test=\"place-order\"]",
+          "evidence": {
+            "url": "https://demo-storefront-buggy.vercel.app/checkout",
+            "selector": "[data-test=\"place-order\"]",
+            "observedText": "Place order"
+          }
+        }
+      ],
+      "evidence": {
+        "url": "https://demo-storefront-buggy.vercel.app/order",
+        "selector": "[data-test=\"back-to-products\"]",
+        "observedText": "Back to products"
+      }
+    },
+    {
+      "id": "flow-contact-form-submit",
+      "intent": "Submit the contact form as a visitor with a name, email, and message",
+      "actions": [
+        {
+          "type": "goto",
+          "url": "https://demo-storefront-buggy.vercel.app/contact",
+          "evidence": {
+            "url": "https://demo-storefront-buggy.vercel.app/contact"
+          }
+        },
+        {
+          "type": "fill",
+          "selector": "[data-test=\"contact-name\"]",
+          "value": "Jane Doe",
+          "evidence": {
+            "url": "https://demo-storefront-buggy.vercel.app/contact",
+            "selector": "[data-test=\"contact-name\"]",
+            "observedText": "Name"
+          }
+        },
+        {
+          "type": "fill",
+          "selector": "[data-test=\"contact-email\"]",
+          "value": "jane.doe@example.com",
+          "evidence": {
+            "url": "https://demo-storefront-buggy.vercel.app/contact",
+            "selector": "[data-test=\"contact-email\"]",
+            "observedText": "Email"
+          }
+        },
+        {
+          "type": "fill",
+          "selector": "[data-test=\"contact-message\"]",
+          "value": "Hello, I have a question about my order.",
+          "evidence": {
+            "url": "https://demo-storefront-buggy.vercel.app/contact",
+            "selector": "[data-test=\"contact-message\"]",
+            "observedText": "Message"
+          }
+        },
+        {
+          "type": "click",
+          "selector": "[data-test=\"contact-submit\"]",
+          "evidence": {
+            "url": "https://demo-storefront-buggy.vercel.app/contact",
+            "selector": "[data-test=\"contact-submit\"]",
+            "observedText": "Send message"
+          }
+        }
+      ],
+      "evidence": {
+        "url": "https://demo-storefront-buggy.vercel.app/contact",
+        "selector": "[data-test=\"contact-form\"]"
+      }
+    },
+    {
+      "id": "flow-attempt-login-404",
+      "intent": "Attempt to access a login page to authenticate, discovering no login route exists (404)",
+      "actions": [
+        {
+          "type": "goto",
+          "url": "https://demo-storefront-buggy.vercel.app/login",
+          "evidence": {
+            "url": "https://demo-storefront-buggy.vercel.app/login"
+          }
+        }
+      ],
+      "evidence": {
+        "url": "https://demo-storefront-buggy.vercel.app/login",
+        "selector": "[data-test=\"nav-home\"]",
+        "observedText": "Demo Storefront"
+      }
+    },
+    {
+      "id": "flow-cart-to-checkout-button-bug",
+      "intent": "From the cart page, click the Checkout button to proceed to checkout (surfacing that the button does not navigate)",
+      "actions": [
+        {
+          "type": "goto",
+          "url": "https://demo-storefront-buggy.vercel.app/cart",
+          "evidence": {
+            "url": "https://demo-storefront-buggy.vercel.app/cart"
+          }
+        },
+        {
+          "type": "click",
+          "selector": "[data-test=\"checkout\"]",
+          "evidence": {
+            "url": "https://demo-storefront-buggy.vercel.app/cart",
+            "selector": "[data-test=\"checkout\"]",
+            "observedText": "Checkout"
+          }
+        }
+      ],
+      "evidence": {
+        "url": "https://demo-storefront-buggy.vercel.app/cart",
+        "selector": "[data-test=\"continue-shopping\"]",
+        "observedText": "Continue shopping"
+      }
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "name": "reprove",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "reprove": "tsx src/cli.ts",
+    "explore": "tsx src/explore.ts",
+    "generate": "tsx src/generate.ts",
+    "check": "tsc --noEmit --allowImportingTsExtensions --types node --strict --target es2022 --module esnext --moduleResolution bundler src/*.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.41.0",
+    "@solarisdk/browser": "^0.1.2",
+    "@solarisdk/sdk": "^0.1.2",
+    "playwright-core": "^1.62.1",
+    "rrweb-player": "^2.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "target": "https://demo-storefront-nine.vercel.app",
+  "specs": "specs-postreview",
+  "startedAt": "2026-09-01T16:04:27.299Z",
+  "results": [
+    {
+      "spec": "flow-add-to-cart.spec.ts",
+      "target": "https://demo-storefront-nine.vercel.app",
+      "pass": true,
+      "timedOut": false,
+      "exitCode": 0,
+      "error": null,
+      "stdoutTail": "PASS add-to-cart: cart badge and contents correctly reflect 2 added items (T-shirt, Mug)\n",
+      "stderrTail": "",
+      "sessionId": "session-[scrubbed]",
+      "replayFile": "runs/postreview-fixed3/flow-add-to-cart/replay.ndjson",
+      "replayBytes": 16996,
+      "durationMs": 10383
+    },
+    {
+      "spec": "flow-attempt-login-404.spec.ts",
+      "target": "https://demo-storefront-nine.vercel.app",
+      "pass": true,
+      "timedOut": false,
+      "exitCode": 0,
+      "error": null,
+      "stdoutTail": "PASS: /login route returns 404 as expected, confirming no login route exists.\n",
+      "stderrTail": "",
+      "sessionId": "session-[scrubbed]",
+      "replayFile": "runs/postreview-fixed3/flow-attempt-login-404/replay.ndjson",
+      "replayBytes": 19872,
+      "durationMs": 10998
+    },
+    {
+      "spec": "flow-cart-to-checkout-button-bug.spec.ts",
+      "target": "https://demo-storefront-nine.vercel.app",
+      "pass": true,
+      "timedOut": false,
+      "exitCode": 0,
+      "error": null,
+      "stdoutTail": "PASS: Checkout button on cart page does not navigate to checkout (bug surfaced), remained at https://demo-storefront-nine.vercel.app/cart\n",
+      "stderrTail": "",
+      "sessionId": "session-[scrubbed]",
+      "replayFile": "runs/postreview-fixed3/flow-cart-to-checkout-button-bug/replay.ndjson",
+      "replayBytes": 21679,
+      "durationMs": 10831
+    },
+    {
+      "spec": "flow-checkout-place-order.spec.ts",
+      "target": "https://demo-storefront-nine.vercel.app",
+      "pass": true,
+      "timedOut": false,
+      "exitCode": 0,
+      "error": null,
+      "stdoutTail": "PASS: Checkout flow completed successfully with order confirmation and empty cart.\n",
+      "stderrTail": "",
+      "sessionId": "session-[scrubbed]",
+      "replayFile": "runs/postreview-fixed3/flow-checkout-place-order/replay.ndjson",
+      "replayBytes": 28066,
+      "durationMs": 7693
+    },
+    {
+      "spec": "flow-contact-form-submit.spec.ts",
+      "target": "https://demo-storefront-nine.vercel.app",
+      "pass": true,
+      "timedOut": false,
+      "exitCode": 0,
+      "error": null,
+      "stdoutTail": "PASS: Contact form submitted successfully with acknowledgement: Thank you \u2014 your message has been received.\n",
+      "stderrTail": "",
+      "sessionId": "session-[scrubbed]",
+      "replayFile": "runs/postreview-fixed3/flow-contact-form-submit/replay.ndjson",
+      "replayBytes": 17008,
+      "durationMs": 7853
+    }
+  ]
+}

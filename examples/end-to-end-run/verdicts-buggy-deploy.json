@@ -1,0 +1,58 @@
+{
+  "target": "https://demo-storefront-buggy.vercel.app",
+  "runDir": "runs/postreview-buggy3",
+  "reran": 2,
+  "reproduced": 2,
+  "didNotReproduce": 0,
+  "findings": [
+    {
+      "spec": "flow-checkout-place-order.spec.ts",
+      "verdict": "finding",
+      "runs": [
+        {
+          "sessionId": "session-[scrubbed]",
+          "pass": false
+        },
+        {
+          "sessionId": "session-[scrubbed]",
+          "pass": false
+        },
+        {
+          "sessionId": "session-[scrubbed]_6vg",
+          "pass": false
+        }
+      ],
+      "replays": [
+        "runs/postreview-buggy3/flow-checkout-place-order/replay.ndjson",
+        "runs/postreview-buggy3/reverify/flow-checkout-place-order/replay-run2.ndjson",
+        "runs/postreview-buggy3/reverify/flow-checkout-place-order/replay-run3.ndjson"
+      ],
+      "stability": "stable"
+    },
+    {
+      "spec": "flow-contact-form-submit.spec.ts",
+      "verdict": "finding",
+      "runs": [
+        {
+          "sessionId": "session-[scrubbed]",
+          "pass": false
+        },
+        {
+          "sessionId": "session-[scrubbed]",
+          "pass": false
+        },
+        {
+          "sessionId": "session-[scrubbed]_FpZJ-iuw",
+          "pass": false
+        }
+      ],
+      "replays": [
+        "runs/postreview-buggy3/flow-contact-form-submit/replay.ndjson",
+        "runs/postreview-buggy3/reverify/flow-contact-form-submit/replay-run2.ndjson",
+        "runs/postreview-buggy3/reverify/flow-contact-form-submit/replay-run3.ndjson"
+      ],
+      "stability": "stable"
+    }
+  ],
+  "flakes": []
+}
