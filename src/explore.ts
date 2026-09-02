@@ -267,8 +267,11 @@ try {
     // (a Radix modal eats the gate submit click otherwise). Accept or escape
     // them before interacting with anything else.
     const dismissDialogs = async () => {
-      for (let i = 0; i < 2; i++) {
-        const dialog = page.locator('[role="dialog"][aria-modal="true"]').first()
+      const dialog = page.locator('[role="dialog"][aria-modal="true"]').first()
+      for (let i = 0; i < 3; i++) {
+        // consent dialogs mount client-side after hydration; give a late
+        // mount a moment before concluding the coast is clear
+        await dialog.waitFor({ state: "visible", timeout: 2500 }).catch(() => {})
         if (!(await dialog.isVisible().catch(() => false))) return
         const accept = dialog
           .locator("button")
@@ -293,6 +296,7 @@ try {
         throw new Error(`landed on a site gate (${page.url()}) but SITE_PASSWORD is not set`)
       }
       await page.locator(GATE_INPUT).first().fill(sitePassword, { timeout: 10_000 })
+      await dismissDialogs()
       await page.locator(GATE_SUBMIT).first().click({ timeout: 10_000 })
       // "load" can hang on third-party scripts in a cloud browser; the gate
       // page itself hard-navigates on success, so domcontentloaded is enough.
@@ -331,6 +335,7 @@ try {
       await email.fill(authEmail)
       const form = email.locator("xpath=ancestor::form").first()
       await form.locator('input[type="password"]').first().fill(authPassword)
+      // no dialog dismissal here: the login modal itself is aria-modal
       await form.locator('button[type="submit"], button:not([type="button"])').first().click()
       await form.waitFor({ state: "detached", timeout: 45_000 })
       await page.waitForLoadState("domcontentloaded").catch(() => {})
