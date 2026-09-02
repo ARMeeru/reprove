@@ -108,7 +108,7 @@ function authPreambleRule(doc: FlowsDocument): string {
   }
   if (doc.auth.login) {
     const gateStep = doc.auth.gate ? " (after the gate step)" : ""
-    parts.push(`${parts.length + 1}. Login${gateStep}: click the header trigger (${doc.auth.login.trigger} filtered to text matching /^\\s*(log ?in|sign ?in)\\s*$/i) if the email input is not already visible; fill ${doc.auth.login.email} with process.env.AUTH_EMAIL! and the same form's ${doc.auth.login.password} with process.env.AUTH_PASSWORD!; click the form's ${doc.auth.login.submit}; wait for that form to detach.`)
+    parts.push(`${parts.length + 1}. Login${gateStep}: click the trigger (${doc.auth.login.trigger} filtered to text matching /^\\s*(log ?in|sign ?in)\\s*$/i) if the email input is not already visible; fill ${doc.auth.login.email} with process.env.AUTH_EMAIL! and the same form's ${doc.auth.login.password} with process.env.AUTH_PASSWORD!; click the form's ${doc.auth.login.submit}; wait for that form to detach.`)
   }
   return `
 - This site sits behind auth that the explorer passed using env-provided credentials. EVERY spec begins with this exact preamble, reading values from process.env — never hardcode credentials, never log their values:

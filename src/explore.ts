@@ -261,7 +261,7 @@ try {
     const GATE_PATH = /site-login|site-password|gate/i
     const GATE_INPUT = 'input[type="password"]'
     const GATE_SUBMIT = 'form button[type="submit"], form button:not([type="button"])'
-    const LOGIN_TRIGGER = 'header button, header a'
+    const LOGIN_TRIGGER = "button, a"
     const LOGIN_EMAIL = 'input[name="email"], input[type="email"]'
     // Consent/promo dialogs mount over the page and intercept pointer events
     // (a Radix modal eats the gate submit click otherwise). Accept or escape
@@ -283,6 +283,9 @@ try {
         await dialog.waitFor({ state: "detached", timeout: 5000 }).catch(() => {})
       }
     }
+    // Login UIs are routinely gated behind desktop breakpoints; the header
+    // login button only exists from 1280px up on this class of site.
+    await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto(startUrl, { waitUntil: "domcontentloaded", timeout: 20_000 })
     await dismissDialogs()
     if (GATE_PATH.test(new URL(page.url()).pathname)) {
