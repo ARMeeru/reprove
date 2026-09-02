@@ -261,7 +261,6 @@ try {
     const GATE_PATH = /site-login|site-password|gate/i
     const GATE_INPUT = 'input[type="password"]'
     const GATE_SUBMIT = 'form button[type="submit"], form button:not([type="button"])'
-    const LOGIN_TRIGGER = "button, a"
     const LOGIN_EMAIL = 'input[name="email"], input[type="email"]'
     // Consent/promo dialogs mount over the page and intercept pointer events
     // (a Radix modal eats the gate submit click otherwise). Accept or escape
@@ -325,9 +324,10 @@ try {
       await dismissDialogs()
       const email = page.locator(LOGIN_EMAIL).first()
       if (!(await email.isVisible().catch(() => false))) {
+        // Not every login control is a semantic button or link (one observed
+        // site renders it as styled text), so match on the visible label.
         await page
-          .locator(LOGIN_TRIGGER)
-          .filter({ hasText: /^\s*(log ?in|sign ?in)\s*$/i })
+          .getByText(/^\s*(log\s*in|sign\s*in)\s*$/i)
           .first()
           .click({ timeout: 10_000 })
       }
@@ -338,9 +338,19 @@ try {
       // no dialog dismissal here: the login modal itself is aria-modal
       await form.locator('button[type="submit"], button:not([type="button"])').first().click()
       await form.waitFor({ state: "detached", timeout: 45_000 })
+      // The definitive logged-in signal is the auth session cookie; a closed
+      // modal alone can also mean a validation round-trip.
+      let authed = false
+      for (let i = 0; i < 15 && !authed; i++) {
+        authed = (await page.context().cookies()).some((c) => /auth-token/i.test(c.name))
+        if (!authed) await page.waitForTimeout(2000)
+      }
+      if (!authed) {
+        throw new Error("login form submitted but no auth session cookie appeared within 30s")
+      }
       await page.waitForLoadState("domcontentloaded").catch(() => {})
       auth.login = {
-        trigger: LOGIN_TRIGGER,
+        trigger: 'getByText(/^\\s*(log\\s*in|sign\\s*in)\\s*$/i)',
         email: LOGIN_EMAIL,
         password: 'input[type="password"]',
         submit: 'button[type="submit"]',
