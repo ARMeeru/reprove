@@ -1,7 +1,7 @@
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises"
 import { spawn } from "node:child_process"
 import { join } from "node:path"
-import Anthropic from "@anthropic-ai/sdk"
+import { query } from "@anthropic-ai/claude-agent-sdk"
 import { Solari } from "@solarisdk/browser"
 import { validateFlows, type Flow, type FlowsDocument } from "./schema.ts"
 
@@ -21,15 +21,39 @@ const TSC_ARGS = [
   "node",
 ]
 
-const EMIT_TOOL: Anthropic.Tool = {
-  name: "emit_spec",
-  description: "Submit the complete TypeScript spec source for this flow.",
-  input_schema: {
-    type: "object",
-    additionalProperties: false,
-    required: ["code"],
-    properties: { code: { type: "string" } },
-  },
+// One text answer, no tools, no agentic turns: the CLI is the transport
+// (subscription setup tokens are enforced to this client shape), the SDK
+// handles spawning and the stream protocol.
+async function callModel(system: string, user: string): Promise<string> {
+  const abort = new AbortController()
+  const timer = setTimeout(() => abort.abort(), 180_000)
+  try {
+    let result: string | undefined
+    let stopped = "no result message"
+    for await (const message of query({
+      prompt: user,
+      options: {
+        model: MODEL,
+        systemPrompt: system,
+        allowedTools: [],
+        maxTurns: 4,
+        abortController: abort,
+      },
+    })) {
+      if (message.type === "result") {
+        if (message.subtype === "success") {
+          result = message.result
+          console.log(`  claude ${message.duration_ms}ms cost=$${message.total_cost_usd.toFixed(4)}`)
+        } else {
+          stopped = `subtype=${message.subtype}`
+        }
+      }
+    }
+    if (result === undefined) throw new Error(`claude returned no result (${stopped})`)
+    return result
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 function parseArgs(argv: string[]) {
@@ -99,6 +123,24 @@ function needsLogin(flow: Flow): boolean {
   })
 }
 
+function authPreambleRule(doc: FlowsDocument): string {
+  if (!doc.auth) return ""
+  const parts: string[] = []
+  parts.push(`0. Right after connecting, set a desktop viewport — await page.setViewportSize({ width: 1440, height: 900 }) — login controls and headers are routinely hidden below desktop breakpoints.`)
+  parts.push(`1. Consent dialogs re-open on navigation until accepted: on the first page load, if a [role="dialog"][aria-modal="true"] is visible, click its ACCEPT-style button (/accept all|accept|agree|got it/i — accepting stores the choice; use /close|dismiss|later/ or Escape only as fallback) and wait for it to detach. Before any later click, if such a dialog is visible again, accept it the same way first — a modal dialog silently intercepts every pointer event on the page.`)
+  if (doc.auth.gate) {
+    parts.push(`1. Site gate: await page.goto(process.env.TARGET_URL!); if the URL path matches /${doc.auth.gate.urlPattern}/i, fill the first ${doc.auth.gate.input} with process.env.SITE_PASSWORD!, click the first ${doc.auth.gate.submit}, and wait until the path no longer matches.`)
+  }
+  if (doc.auth.login) {
+    const gateStep = doc.auth.gate ? " (after the gate step)" : ""
+    parts.push(`${parts.length + 1}. Login${gateStep}: open the login form — if the email input is not already visible, click the visible login control (page.getByText(/^\\s*(log\\s*in|sign\\s*in)\\s*$/i).first()); fill ${doc.auth.login.email} with process.env.AUTH_EMAIL! and the same form's ${doc.auth.login.password} with process.env.AUTH_PASSWORD!; click the form's ${doc.auth.login.submit}; wait for that form to detach, then poll page.context().cookies() until a cookie matching /auth-token/i appears (up to 30s) — that cookie is the logged-in proof.`)
+  }
+  return `
+- This site sits behind auth that the explorer passed using env-provided credentials. EVERY spec begins with this exact preamble, reading values from process.env — never hardcode credentials, never log their values:
+${parts.join("\n")}
+- Credentials come only from the env vars above; do not take fill values from sibling flows for the auth preamble.`
+}
+
 function systemPrompt(doc: FlowsDocument): string {
   return `You write one Playwright spec file for a QA flow.
 Rules:
@@ -118,7 +160,7 @@ Rules:
 - Specs start from a fresh browser. If the flow begins on a post-login page, prepend login using fill values from other flows in the document (never invent credentials).
 - If a logout/sidebar link is not visible, open the burger/menu button first.
 - After every navigation or click that changes the page, wait for the next locator to be visible before using it.
-- Never goto a deep path that requires session state; drive there with UI actions from TARGET_URL.
+- Never goto a deep path that requires session state; drive there with UI actions from TARGET_URL.${authPreambleRule(doc)}
 - TARGET_URL origin is ${doc.site.origin}.`
 }
 
@@ -140,24 +182,18 @@ Flow:
 ${JSON.stringify(flow, null, 2)}`
 }
 
-function takeCode(res: Anthropic.Message): string {
-  const block = res.content.find((b) => b.type === "tool_use" && b.name === "emit_spec")
-  if (block && block.type === "tool_use") {
-    const code = (block.input as { code?: unknown }).code
-    if (typeof code === "string" && code.trim()) return code.trim() + "\n"
-  }
-  const text = res.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("\n")
+function takeCode(text: string): string {
   const fence = text.match(/```(?:ts|typescript)?\s*([\s\S]*?)```/)
   if (fence) return fence[1]!.trim() + "\n"
-  throw new Error("emit_spec returned no code")
+  throw new Error("model output contained no fenced TypeScript code block")
 }
 
-if (!process.env.ANTHROPIC_API_KEY) {
-  console.log("FAIL ANTHROPIC_API_KEY is not set")
-  process.exit(1)
+// Model calls run through the Claude Code CLI. A subscription setup token
+// (ANTHROPIC_AUTH_TOKEN) outranks the API key in the CLI's own precedence;
+// scrub the key so the billing mode is deterministic, not precedence-dependent.
+if (process.env.ANTHROPIC_AUTH_TOKEN) delete process.env.ANTHROPIC_API_KEY
+if (!process.env.ANTHROPIC_AUTH_TOKEN && !process.env.ANTHROPIC_API_KEY) {
+  console.log("NOTE no ANTHROPIC_AUTH_TOKEN/ANTHROPIC_API_KEY set; relying on claude login auth")
 }
 
 const { flowsPath, outDir, run, only, skipGenerate } = parseArgs(process.argv.slice(2))
@@ -170,7 +206,8 @@ if (schemaErrors.length) {
 const doc = raw as FlowsDocument
 await mkdir(outDir, { recursive: true })
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+// ANTHROPIC_AUTH_TOKEN (a Claude setup token) bills the subscription via
+// Bearer auth; ANTHROPIC_API_KEY is the pay-per-call fallback.
 const log: string[] = []
 const written: string[] = []
 
@@ -184,18 +221,9 @@ async function generateOne(flow: Flow, priorError?: string): Promise<string | nu
   const file = join(outDir, `${flow.id}.spec.ts`)
   let lastErr = priorError
   for (let attempt = 0; attempt <= 2; attempt++) {
-    const messages: Anthropic.MessageParam[] = [{ role: "user", content: userPrompt(doc, flow, lastErr) }]
-    const res = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: 8192,
-      system: systemPrompt(doc),
-      tools: [EMIT_TOOL],
-      tool_choice: { type: "tool", name: "emit_spec" },
-      messages,
-    })
     let code: string
     try {
-      code = takeCode(res)
+      code = takeCode(await callModel(systemPrompt(doc), userPrompt(doc, flow, lastErr)))
     } catch (err) {
       lastErr = err instanceof Error ? err.message : String(err)
       console.log(`  attempt ${attempt} no code: ${lastErr}`)
@@ -218,7 +246,7 @@ async function generateOne(flow: Flow, priorError?: string): Promise<string | nu
       return file
     }
     lastErr = tscErr
-    console.log(`  attempt ${attempt} tsc failed`)
+    console.log(`  attempt ${attempt} tsc failed: ${tscErr.slice(0, 400)}`)
   }
   return null
 }
@@ -228,14 +256,17 @@ if (skipGenerate) {
 } else {
   // A full generation owns the out-dir: remove specs left over from earlier
   // generations (a stale spec still executes and its failures masquerade as
-  // findings of this run). --only regenerates in place and cleans nothing.
-  const existing = (await readdir(outDir).catch(() => [] as string[])).filter((f) => f.endsWith(".spec.ts"))
-  const currentIds = new Set(flows.map((f) => f.id))
-  for (const f of existing) {
-    const id = f.replace(/\.spec\.ts$/, "")
-    if (!currentIds.has(id)) {
-      await rm(join(outDir, f), { force: true })
-      log.push(`STALE-REMOVED ${f}: flow id not in current flows.json`)
+  // findings of this run). --only regenerates in place and sweeps nothing —
+  // sweeping there would delete sibling specs from other --only runs.
+  if (!only) {
+    const existing = (await readdir(outDir).catch(() => [] as string[])).filter((f) => f.endsWith(".spec.ts"))
+    const currentIds = new Set(doc.flows.map((f) => f.id))
+    for (const f of existing) {
+      const id = f.replace(/\.spec\.ts$/, "")
+      if (!currentIds.has(id)) {
+        await rm(join(outDir, f), { force: true })
+        log.push(`STALE-REMOVED ${f}: flow id not in current flows.json`)
+      }
     }
   }
   for (const flow of flows) {

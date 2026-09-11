@@ -4,6 +4,7 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import {
+  authGuestEnv,
   GUEST_DIR,
   createRecordedSession,
   createSandboxWithNode,
@@ -60,7 +61,7 @@ try {
       run = await runSpecInSandbox(
         box,
         f,
-        { SOLARI_CDP_ENDPOINT: session.cdpUrl, TARGET_URL: target },
+        { SOLARI_CDP_ENDPOINT: session.cdpUrl, TARGET_URL: target, ...authGuestEnv() },
         specTimeoutMs,
       )
     } finally {

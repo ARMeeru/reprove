@@ -6,6 +6,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import {
+  authGuestEnv,
   createRecordedSession,
   createSandboxWithNode,
   errMsg,
@@ -76,7 +77,7 @@ async function rerun(box: Awaited<ReturnType<typeof createSandboxWithNode>>, spe
     runRes = await runSpecInSandbox(
       box,
       spec,
-      { SOLARI_CDP_ENDPOINT: session.cdpUrl, TARGET_URL: target },
+      { SOLARI_CDP_ENDPOINT: session.cdpUrl, TARGET_URL: target, ...authGuestEnv() },
       specTimeoutMs,
     )
   } finally {

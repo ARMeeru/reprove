@@ -6,3 +6,5 @@ runs/
 /flows.json
 *.log
 !examples/end-to-end-run/**
+runs/
+demo.sh
