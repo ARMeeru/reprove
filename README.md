@@ -81,8 +81,9 @@ The header states the rate line plainly: how many failures, how many reproduced,
 
 ## Cost
 
-Browser time is billed at $0.15/hr on the free plan. A full pipeline run spends a few minutes of browser time across explore, execute, and reverify: under two cents.
+Browser time is billed at $0.15/hr. A full pipeline run spends a few minutes of browser time across explore, execute, and reverify: a few cents.
 This entire project was developed, including every spike and failed retry, for $0.14 of the free plan's $3 monthly credit.
+Model time runs through the Claude Code CLI, and its usage is measurable: a full pipeline run spends roughly $0.30-$0.75 of API-equivalent value in explore plus about $0.10 per generated spec. A subscription setup token absorbs that within plan limits; a metered API key pays it per run.
 
 ## Honest limitations
 
