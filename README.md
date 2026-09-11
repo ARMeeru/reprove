@@ -48,7 +48,8 @@ Generated specs typecheck under `tsc --strict` before they are allowed to run, s
 
 ```sh
 export SOLARI_API_KEY=slr_live_...    # console.getsolari.com
-export ANTHROPIC_API_KEY=sk-ant-...   # console.anthropic.com (explore + generate)
+export ANTHROPIC_AUTH_TOKEN=sk-ant-oat01-...  # Claude setup token: billed to the subscription, not per-call (explore + generate)
+  # or: export ANTHROPIC_API_KEY=sk-ant-...     # console.anthropic.com pay-per-call fallback
 
 npm install
 npx tsx src/cli.ts https://your-staging-url.example

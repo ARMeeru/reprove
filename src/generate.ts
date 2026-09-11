@@ -173,8 +173,8 @@ function takeCode(res: Anthropic.Message): string {
   throw new Error("emit_spec returned no code")
 }
 
-if (!process.env.ANTHROPIC_API_KEY) {
-  console.log("FAIL ANTHROPIC_API_KEY is not set")
+if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) {
+  console.log("FAIL set ANTHROPIC_AUTH_TOKEN (subscription setup token) or ANTHROPIC_API_KEY")
   process.exit(1)
 }
 
@@ -188,7 +188,11 @@ if (schemaErrors.length) {
 const doc = raw as FlowsDocument
 await mkdir(outDir, { recursive: true })
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+// ANTHROPIC_AUTH_TOKEN (a Claude setup token) bills the subscription via
+// Bearer auth; ANTHROPIC_API_KEY is the pay-per-call fallback.
+const anthropic = process.env.ANTHROPIC_AUTH_TOKEN
+  ? new Anthropic({ authToken: process.env.ANTHROPIC_AUTH_TOKEN })
+  : new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 const log: string[] = []
 const written: string[] = []
 
