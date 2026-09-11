@@ -1,7 +1,7 @@
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises"
 import { spawn } from "node:child_process"
 import { join } from "node:path"
-import Anthropic from "@anthropic-ai/sdk"
+import { query } from "@anthropic-ai/claude-agent-sdk"
 import { Solari } from "@solarisdk/browser"
 import { validateFlows, type Flow, type FlowsDocument } from "./schema.ts"
 
@@ -21,15 +21,39 @@ const TSC_ARGS = [
   "node",
 ]
 
-const EMIT_TOOL: Anthropic.Tool = {
-  name: "emit_spec",
-  description: "Submit the complete TypeScript spec source for this flow.",
-  input_schema: {
-    type: "object",
-    additionalProperties: false,
-    required: ["code"],
-    properties: { code: { type: "string" } },
-  },
+// One text answer, no tools, no agentic turns: the CLI is the transport
+// (subscription setup tokens are enforced to this client shape), the SDK
+// handles spawning and the stream protocol.
+async function callModel(system: string, user: string): Promise<string> {
+  const abort = new AbortController()
+  const timer = setTimeout(() => abort.abort(), 180_000)
+  try {
+    let result: string | undefined
+    let stopped = "no result message"
+    for await (const message of query({
+      prompt: user,
+      options: {
+        model: MODEL,
+        systemPrompt: system,
+        allowedTools: [],
+        maxTurns: 4,
+        abortController: abort,
+      },
+    })) {
+      if (message.type === "result") {
+        if (message.subtype === "success") {
+          result = message.result
+          console.log(`  claude ${message.duration_ms}ms cost=$${message.total_cost_usd.toFixed(4)}`)
+        } else {
+          stopped = `subtype=${message.subtype}`
+        }
+      }
+    }
+    if (result === undefined) throw new Error(`claude returned no result (${stopped})`)
+    return result
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 function parseArgs(argv: string[]) {
@@ -158,24 +182,18 @@ Flow:
 ${JSON.stringify(flow, null, 2)}`
 }
 
-function takeCode(res: Anthropic.Message): string {
-  const block = res.content.find((b) => b.type === "tool_use" && b.name === "emit_spec")
-  if (block && block.type === "tool_use") {
-    const code = (block.input as { code?: unknown }).code
-    if (typeof code === "string" && code.trim()) return code.trim() + "\n"
-  }
-  const text = res.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("\n")
+function takeCode(text: string): string {
   const fence = text.match(/```(?:ts|typescript)?\s*([\s\S]*?)```/)
   if (fence) return fence[1]!.trim() + "\n"
-  throw new Error("emit_spec returned no code")
+  throw new Error("model output contained no fenced TypeScript code block")
 }
 
-if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) {
-  console.log("FAIL set ANTHROPIC_AUTH_TOKEN (subscription setup token) or ANTHROPIC_API_KEY")
-  process.exit(1)
+// Model calls run through the Claude Code CLI. A subscription setup token
+// (ANTHROPIC_AUTH_TOKEN) outranks the API key in the CLI's own precedence;
+// scrub the key so the billing mode is deterministic, not precedence-dependent.
+if (process.env.ANTHROPIC_AUTH_TOKEN) delete process.env.ANTHROPIC_API_KEY
+if (!process.env.ANTHROPIC_AUTH_TOKEN && !process.env.ANTHROPIC_API_KEY) {
+  console.log("NOTE no ANTHROPIC_AUTH_TOKEN/ANTHROPIC_API_KEY set; relying on claude login auth")
 }
 
 const { flowsPath, outDir, run, only, skipGenerate } = parseArgs(process.argv.slice(2))
@@ -190,9 +208,6 @@ await mkdir(outDir, { recursive: true })
 
 // ANTHROPIC_AUTH_TOKEN (a Claude setup token) bills the subscription via
 // Bearer auth; ANTHROPIC_API_KEY is the pay-per-call fallback.
-const anthropic = process.env.ANTHROPIC_AUTH_TOKEN
-  ? new Anthropic({ authToken: process.env.ANTHROPIC_AUTH_TOKEN })
-  : new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 const log: string[] = []
 const written: string[] = []
 
@@ -206,18 +221,9 @@ async function generateOne(flow: Flow, priorError?: string): Promise<string | nu
   const file = join(outDir, `${flow.id}.spec.ts`)
   let lastErr = priorError
   for (let attempt = 0; attempt <= 2; attempt++) {
-    const messages: Anthropic.MessageParam[] = [{ role: "user", content: userPrompt(doc, flow, lastErr) }]
-    const res = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: 8192,
-      system: systemPrompt(doc),
-      tools: [EMIT_TOOL],
-      tool_choice: { type: "tool", name: "emit_spec" },
-      messages,
-    })
     let code: string
     try {
-      code = takeCode(res)
+      code = takeCode(await callModel(systemPrompt(doc), userPrompt(doc, flow, lastErr)))
     } catch (err) {
       lastErr = err instanceof Error ? err.message : String(err)
       console.log(`  attempt ${attempt} no code: ${lastErr}`)

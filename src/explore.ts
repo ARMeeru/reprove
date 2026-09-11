@@ -1,53 +1,11 @@
 import { writeFile } from "node:fs/promises"
-import Anthropic from "@anthropic-ai/sdk"
+import { createSdkMcpServer, query, tool } from "@anthropic-ai/claude-agent-sdk"
+import { z } from "zod"
 import { Solari } from "@solarisdk/browser"
 import { validateFlows, type AuthBootstrap, type FlowsDocument, type PageInventory } from "./schema.ts"
 
 const MODEL = "claude-sonnet-5"
 const WALL_MS = 10 * 60_000
-
-const TOOLS: Anthropic.Tool[] = [
-  {
-    name: "goto",
-    description: "Navigate to a same-origin URL.",
-    input_schema: {
-      type: "object",
-      additionalProperties: false,
-      required: ["url"],
-      properties: { url: { type: "string" } },
-    },
-  },
-  {
-    name: "read_page",
-    description: "Return a DOM digest of the current page (not raw HTML): title, headings, truncated text, forms, buttons, links.",
-    input_schema: { type: "object", additionalProperties: false, properties: {} },
-  },
-  {
-    name: "list_interactive",
-    description: "List interactive elements on the current page with selectors.",
-    input_schema: { type: "object", additionalProperties: false, properties: {} },
-  },
-  {
-    name: "click",
-    description: "Click the element matching selector (CSS, [data-test], or role=button[name=...]).",
-    input_schema: {
-      type: "object",
-      additionalProperties: false,
-      required: ["selector"],
-      properties: { selector: { type: "string" } },
-    },
-  },
-  {
-    name: "fill",
-    description: "Fill an input matching selector. Use values visible on the page; do not invent secrets.",
-    input_schema: {
-      type: "object",
-      additionalProperties: false,
-      required: ["selector", "value"],
-      properties: { selector: { type: "string" }, value: { type: "string" } },
-    },
-  },
-]
 
 function parseArgs(argv: string[]) {
   let url = ""
@@ -87,15 +45,6 @@ type Digest = {
   buttons: PageInventory["buttons"]
   links: PageInventory["links"]
   navigation: PageInventory["navigation"]
-}
-
-function extractJson(text: string): unknown {
-  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/)
-  const raw = fence ? fence[1]! : text
-  const start = raw.indexOf("{")
-  const end = raw.lastIndexOf("}")
-  if (start < 0 || end < start) throw new Error("no JSON object in model output")
-  return JSON.parse(raw.slice(start, end + 1))
 }
 
 // tsx/esbuild injects __name into function expressions; Playwright serializes
@@ -201,9 +150,12 @@ if (!process.env.SOLARI_API_KEY) {
   console.log("FAIL SOLARI_API_KEY is not set")
   process.exit(1)
 }
-if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) {
-  console.log("FAIL set ANTHROPIC_AUTH_TOKEN (subscription setup token) or ANTHROPIC_API_KEY")
-  process.exit(1)
+// Model calls run through the Claude Code CLI (Agent SDK transport): a
+// subscription setup token (ANTHROPIC_AUTH_TOKEN) is honored natively; the
+// API key is scrubbed when a token is present so billing mode is deterministic.
+if (process.env.ANTHROPIC_AUTH_TOKEN) delete process.env.ANTHROPIC_API_KEY
+if (!process.env.ANTHROPIC_AUTH_TOKEN && !process.env.ANTHROPIC_API_KEY) {
+  console.log("NOTE no ANTHROPIC_AUTH_TOKEN/ANTHROPIC_API_KEY set; relying on claude login auth")
 }
 
 const { url: startUrl, maxPages, maxActions, out } = parseArgs(process.argv.slice(2))
@@ -215,11 +167,6 @@ let actions = 0
 let sessionId = ""
 
 const solari = new Solari({ apiKey: process.env.SOLARI_API_KEY })
-// ANTHROPIC_AUTH_TOKEN (a Claude setup token) bills the subscription via
-// Bearer auth; ANTHROPIC_API_KEY is the pay-per-call fallback.
-const anthropic = process.env.ANTHROPIC_AUTH_TOKEN
-  ? new Anthropic({ authToken: process.env.ANTHROPIC_AUTH_TOKEN })
-  : new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
 function remaining() {
   return {
@@ -327,210 +274,62 @@ try {
     if (authEmail && authPassword) {
       await dismissDialogs()
       const email = page.locator(LOGIN_EMAIL).first()
-      if (!(await email.isVisible().catch(() => false))) {
-        // Not every login control is a semantic button or link (one observed
-        // site renders it as styled text), so match on the visible label.
-        await page
-          .getByText(/^\s*(log\s*in|sign\s*in)\s*$/i)
-          .first()
-          .click({ timeout: 10_000 })
-      }
-      await email.waitFor({ state: "visible", timeout: 15_000 })
-      await email.fill(authEmail)
-      const form = email.locator("xpath=ancestor::form").first()
-      await form.locator('input[type="password"]').first().fill(authPassword)
-      // no dialog dismissal here: the login modal itself is aria-modal
-      await form.locator('button[type="submit"], button:not([type="button"])').first().click()
-      await form.waitFor({ state: "detached", timeout: 45_000 })
-      // The definitive logged-in signal is the auth session cookie; a closed
-      // modal alone can also mean a validation round-trip.
-      let authed = false
-      for (let i = 0; i < 15 && !authed; i++) {
-        authed = (await page.context().cookies()).some((c) => /auth-token/i.test(c.name))
-        if (!authed) await page.waitForTimeout(2000)
-      }
-      if (!authed) {
-        throw new Error("login form submitted but no auth session cookie appeared within 30s")
-      }
-      await page.waitForLoadState("domcontentloaded").catch(() => {})
-      auth.login = {
-        trigger: 'getByText(/^\\s*(log\\s*in|sign\\s*in)\\s*$/i)',
-        email: LOGIN_EMAIL,
-        password: 'input[type="password"]',
-        submit: 'button[type="submit"]',
-      }
-      await snapshot()
-      console.log(`bootstrap: logged in -> ${page.url()}`)
-    }
-
-    const runTool = async (name: string, input: Record<string, unknown>): Promise<string> => {
-      if (Date.now() >= deadline) return JSON.stringify({ error: "wall-clock budget exhausted" })
-      try {
-        if (name === "goto") {
-          const target = String(input.url ?? "")
-          if (!target) return JSON.stringify({ error: "url required" })
-          let abs: URL
-          try {
-            abs = new URL(target, page.url() || startUrl)
-          } catch {
-            return JSON.stringify({ error: "invalid url" })
-          }
-          if (abs.origin !== origin) return JSON.stringify({ error: "off-origin blocked", origin })
-          const key = pageKey(abs.toString())
-          if (!pages.has(key) && pages.size >= maxPages) {
-            return JSON.stringify({ error: "max-pages reached", ...remaining() })
-          }
-          if (overBudget()) return JSON.stringify({ error: "action budget exhausted", ...remaining() })
-          actions++
-          await page.goto(abs.toString(), { waitUntil: "domcontentloaded", timeout: 20_000 })
-          if (originOf(page.url()) !== origin) {
-            await page.goto(startUrl, { waitUntil: "domcontentloaded" })
-            return JSON.stringify({ error: "navigation left origin; returned to start" })
-          }
-          const d = await snapshot()
-          console.log(`goto ${d.url} actions=${actions} pages=${pages.size}`)
-          return JSON.stringify({ ok: true, url: d.url, title: d.title, ...remaining() })
+      const trigger = page.getByText(/^\s*(log\s*in|sign\s*in)\s*$/i).first()
+      // Env credentials are an offer, not an instruction: a site with no
+      // login affordance at all (an open demo, a marketing site) is
+      // explored logged out rather than failing the run.
+      const triggerVisible = await trigger.isVisible().catch(() => false)
+      const emailVisible = await email.isVisible().catch(() => false)
+      if (!triggerVisible && !emailVisible) {
+        console.log("bootstrap: no login affordance found; continuing logged out")
+      } else {
+        if (!emailVisible) {
+          // Not every login control is a semantic button or link (one observed
+          // site renders it as styled text), so match on the visible label.
+          await trigger.click({ timeout: 10_000 })
         }
-        if (name === "read_page") {
-          const d = await snapshot()
-          return JSON.stringify({ ...d, ...remaining() })
+        await email.waitFor({ state: "visible", timeout: 15_000 })
+        await email.fill(authEmail)
+        const form = email.locator("xpath=ancestor::form").first()
+        await form.locator('input[type="password"]').first().fill(authPassword)
+        // no dialog dismissal here: the login modal itself is aria-modal
+        await form.locator('button[type="submit"], button:not([type="button"])').first().click()
+        await form.waitFor({ state: "detached", timeout: 45_000 })
+        // The definitive logged-in signal is the auth session cookie; a closed
+        // modal alone can also mean a validation round-trip.
+        let authed = false
+        for (let i = 0; i < 15 && !authed; i++) {
+          authed = (await page.context().cookies()).some((c) => /auth-token/i.test(c.name))
+          if (!authed) await page.waitForTimeout(2000)
         }
-        if (name === "list_interactive") {
-          const d = await digest(page, 40)
-          pages.set(pageKey(d.url), asPage(d))
-          return JSON.stringify({
-            url: d.url,
-            forms: d.forms,
-            buttons: d.buttons,
-            links: d.links,
-            navigation: d.navigation,
-            ...remaining(),
-          })
+        if (!authed) {
+          throw new Error("login form submitted but no auth session cookie appeared within 30s")
         }
-        if (name === "click") {
-          if (overBudget()) return JSON.stringify({ error: "action budget exhausted", ...remaining() })
-          const selector = String(input.selector ?? "")
-          if (!selector) return JSON.stringify({ error: "selector required" })
-          actions++
-          await locator(page, selector).first().click({ timeout: 10_000 })
-          await page.waitForLoadState("domcontentloaded").catch(() => {})
-          if (originOf(page.url()) !== origin) {
-            await page.goBack().catch(() => page.goto(startUrl, { waitUntil: "domcontentloaded" }))
-            return JSON.stringify({ error: "click left origin; navigated back", ...remaining() })
-          }
-          const d = await snapshot()
-          console.log(`click ${selector} -> ${d.url} actions=${actions}`)
-          return JSON.stringify({ ok: true, url: d.url, title: d.title, ...remaining() })
+        await page.waitForLoadState("domcontentloaded").catch(() => {})
+        auth.login = {
+          trigger: 'getByText(/^\\s*(log\\s*in|sign\\s*in)\\s*$/i)',
+          email: LOGIN_EMAIL,
+          password: 'input[type="password"]',
+          submit: 'button[type="submit"]',
         }
-        if (name === "fill") {
-          if (overBudget()) return JSON.stringify({ error: "action budget exhausted", ...remaining() })
-          const selector = String(input.selector ?? "")
-          const value = String(input.value ?? "")
-          if (!selector) return JSON.stringify({ error: "selector required" })
-          actions++
-          await locator(page, selector).first().fill(value, { timeout: 10_000 })
-          console.log(`fill ${selector} actions=${actions}`)
-          return JSON.stringify({ ok: true, ...remaining() })
-        }
-        return JSON.stringify({ error: `unknown tool ${name}` })
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err)
-        console.log(`tool error ${name}: ${msg}`)
-        return JSON.stringify({ error: msg, ...remaining() })
+        await snapshot()
+        console.log(`bootstrap: logged in -> ${page.url()}`)
       }
     }
 
-    const messages: Anthropic.MessageParam[] = [
-      {
-        role: "user",
-        content: `Explore ${startUrl}. Start with goto then list_interactive. Produce at least 3 distinct flows by the end.`,
-      },
-    ]
-
-    while (!overBudget()) {
-      const res = await anthropic.messages.create({
-        model: MODEL,
-        max_tokens: 4096,
-        system,
-        tools: TOOLS,
-        messages,
-      })
-      messages.push({ role: "assistant", content: res.content })
-      if (res.stop_reason !== "tool_use") break
-      const results: Anthropic.ToolResultBlockParam[] = []
-      for (const block of res.content) {
-        if (block.type !== "tool_use") continue
-        const output = await runTool(block.name, block.input as Record<string, unknown>)
-        results.push({ type: "tool_result", tool_use_id: block.id, content: output })
-      }
-      if (results.length === 0) break
-      messages.push({ role: "user", content: results })
-    }
-
-    const observed = [...pages.values()]
-    if (observed.length === 0) {
-      throw new Error("no pages inventoried; browser tools never succeeded")
-    }
-
-    const emitTool: Anthropic.Tool = {
-      name: "emit_flows",
-      description: "Submit at least 3 QA flows derived from the observed pages.",
-      input_schema: {
-        type: "object",
-        additionalProperties: false,
-        required: ["flows"],
-        properties: {
-          flows: {
-            type: "array",
-            minItems: 3,
-            items: {
-              type: "object",
-              additionalProperties: false,
-              required: ["id", "intent", "actions", "evidence"],
-              properties: {
-                id: { type: "string" },
-                intent: { type: "string" },
-                evidence: {
-                  type: "object",
-                  required: ["url"],
-                  properties: {
-                    url: { type: "string" },
-                    selector: { type: "string" },
-                    observedText: { type: "string" },
-                  },
-                },
-                actions: {
-                  type: "array",
-                  minItems: 1,
-                  items: {
-                    type: "object",
-                    additionalProperties: false,
-                    required: ["type", "evidence"],
-                    properties: {
-                      type: { type: "string", enum: ["goto", "click", "fill"] },
-                      url: { type: "string" },
-                      selector: { type: "string" },
-                      value: { type: "string" },
-                      evidence: {
-                        type: "object",
-                        required: ["url"],
-                        properties: {
-                          url: { type: "string" },
-                          selector: { type: "string" },
-                          observedText: { type: "string" },
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
+    // The agent loop is Claude Code's: the explore tools ride an in-process
+    // MCP server, and the model drives them until it calls emit_flows.
+    let emitted: FlowsDocument | undefined
+    const text = (obj: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(obj) }] })
+    const toolError = (err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.log(`tool error: ${msg}`)
+      return { content: [{ type: "text" as const, text: JSON.stringify({ error: msg, ...remaining() }) }], isError: true }
     }
 
     const assemble = (flows: unknown): FlowsDocument => {
+      const observed = [...pages.values()]
+      if (observed.length === 0) throw new Error("no pages inventoried; browser tools never succeeded")
       const doc: FlowsDocument = {
         site: {
           url: startUrl,
@@ -548,74 +347,157 @@ try {
       return doc
     }
 
-    const compact = observed.map((p) => ({
-      url: p.url,
-      title: p.title,
-      forms: p.forms,
-      buttons: p.buttons.map((b) => ({ selector: b.selector, text: b.text })),
-      links: p.links.slice(0, 12).map((l) => ({ selector: l.selector, text: l.text, href: l.href })),
-      navigation: p.navigation.map((n) => ({ selector: n.selector, text: n.text, href: n.href })),
-    }))
-
-    messages.push({
-      role: "user",
-      content: `Exploration finished. Call emit_flows with at least 3 distinct intents (login, add to cart, checkout, logout, ...).
-Use selectors from this inventory. Every flow and action needs evidence.url from these pages.
-${JSON.stringify(compact)}`,
-    })
-
-    const takeFlows = (res: Anthropic.Message): unknown => {
-      const block = res.content.find((b) => b.type === "tool_use" && b.name === "emit_flows")
-      if (block && block.type === "tool_use") {
-        const input = block.input as { flows?: unknown }
-        return input.flows
-      }
-      const text = res.content
-        .filter((b): b is Anthropic.TextBlock => b.type === "text")
-        .map((b) => b.text)
-        .join("\n")
-      const parsed = extractJson(text) as { flows?: unknown }
-      if (parsed && typeof parsed === "object" && "flows" in parsed) return parsed.flows
-      return (parsed as FlowsDocument).flows
+    const evidenceShape = {
+      url: z.string(),
+      selector: z.string().optional(),
+      observedText: z.string().optional(),
     }
-
-    let final = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: 8192,
-      system,
-      tools: [emitTool],
-      tool_choice: { type: "tool", name: "emit_flows" },
-      messages,
+    const mcpServer = createSdkMcpServer({
+      name: "reprove",
+      version: "1.0.0",
+      tools: [
+        tool("goto", "Navigate the browser to a same-origin URL.", { url: z.string() }, async ({ url }) => {
+          try {
+            if (Date.now() >= deadline) return text({ error: "wall-clock budget exhausted" })
+            let abs: URL
+            try {
+              abs = new URL(url, page.url() || startUrl)
+            } catch {
+              return text({ error: "invalid url" })
+            }
+            if (abs.origin !== origin) return text({ error: "off-origin blocked", origin })
+            const key = pageKey(abs.toString())
+            if (!pages.has(key) && pages.size >= maxPages) {
+              return text({ error: "max-pages reached", ...remaining() })
+            }
+            if (overBudget()) return text({ error: "action budget exhausted", ...remaining() })
+            actions++
+            await page.goto(abs.toString(), { waitUntil: "domcontentloaded", timeout: 20_000 })
+            if (originOf(page.url()) !== origin) {
+              await page.goto(startUrl, { waitUntil: "domcontentloaded" })
+              return text({ error: "navigation left origin; returned to start" })
+            }
+            const d = await snapshot()
+            console.log(`goto ${d.url} actions=${actions} pages=${pages.size}`)
+            return text({ ok: true, url: d.url, title: d.title, ...remaining() })
+          } catch (err) {
+            return toolError(err)
+          }
+        }),
+        tool("read_page", "DOM digest of the current page: title, headings, text, forms, buttons, links.", {}, async () => {
+          try {
+            const d = await snapshot()
+            return text({ ...d, ...remaining() })
+          } catch (err) {
+            return toolError(err)
+          }
+        }),
+        tool("list_interactive", "Interactive elements on the current page with selectors.", {}, async () => {
+          try {
+            const d = await digest(page, 40)
+            pages.set(pageKey(d.url), asPage(d))
+            return text({ url: d.url, forms: d.forms, buttons: d.buttons, links: d.links, navigation: d.navigation, ...remaining() })
+          } catch (err) {
+            return toolError(err)
+          }
+        }),
+        tool("click", "Click the element matching a selector.", { selector: z.string() }, async ({ selector }) => {
+          try {
+            if (overBudget()) return text({ error: "action budget exhausted", ...remaining() })
+            actions++
+            await locator(page, selector).first().click({ timeout: 10_000 })
+            await page.waitForLoadState("domcontentloaded").catch(() => {})
+            if (originOf(page.url()) !== origin) {
+              await page.goBack().catch(() => page.goto(startUrl, { waitUntil: "domcontentloaded" }))
+              return text({ error: "click left origin; navigated back", ...remaining() })
+            }
+            const d = await snapshot()
+            console.log(`click ${selector} -> ${d.url} actions=${actions}`)
+            return text({ ok: true, url: d.url, title: d.title, ...remaining() })
+          } catch (err) {
+            return toolError(err)
+          }
+        }),
+        tool("fill", "Fill an input matching a selector.", { selector: z.string(), value: z.string() }, async ({ selector, value }) => {
+          try {
+            if (overBudget()) return text({ error: "action budget exhausted", ...remaining() })
+            actions++
+            await locator(page, selector).first().fill(value, { timeout: 10_000 })
+            console.log(`fill ${selector} actions=${actions}`)
+            return text({ ok: true, ...remaining() })
+          } catch (err) {
+            return toolError(err)
+          }
+        }),
+        tool("emit_flows", "Submit at least 3 QA flows derived from the observed pages. Validating ends the exploration; fix and re-call if validation fails.", {
+          flows: z.array(z.looseObject({
+            id: z.string(),
+            intent: z.string(),
+            evidence: z.object(evidenceShape),
+            actions: z.array(z.looseObject({
+              type: z.enum(["goto", "click", "fill"]),
+              url: z.string().optional(),
+              selector: z.string().optional(),
+              value: z.string().optional(),
+              evidence: z.object(evidenceShape),
+            })).min(1),
+          })),
+        }, async ({ flows }) => {
+          try {
+            emitted = assemble(flows)
+            console.log(`emit_flows accepted: ${emitted.flows.length} flows`)
+            return text({ ok: true, flows: emitted.flows.length })
+          } catch (err) {
+            return toolError(err)
+          }
+        }),
+      ],
     })
-    let doc: FlowsDocument
+
+    const allowedTools = [
+      "mcp__reprove_goto",
+      "mcp__reprove_read_page",
+      "mcp__reprove_list_interactive",
+      "mcp__reprove_click",
+      "mcp__reprove_fill",
+      "mcp__reprove_emit_flows",
+    ]
+    const abort = new AbortController()
+    const wall = setTimeout(() => abort.abort(), Math.max(1_000, deadline - Date.now()))
     try {
-      doc = assemble(takeFlows(final))
-    } catch (err) {
-      const why = err instanceof Error ? err.message : String(err)
-      console.log(`flows invalid, retrying: ${why}`)
-      messages.push({ role: "assistant", content: final.content })
-      // The retried response may carry tool_use blocks; each needs a
-      // tool_result in the next user message or the API rejects the call.
-      const retryResults: Anthropic.ToolResultBlockParam[] = final.content
-        .filter((b): b is Anthropic.ToolUseBlock => b.type === "tool_use")
-        .map((b) => ({
-          type: "tool_result" as const,
-          tool_use_id: b.id,
-          is_error: true,
-          content: `emit_flows failed validation: ${why}. Call emit_flows again with a corrected flows array.`,
-        }))
-      messages.push({ role: "user", content: retryResults })
-      final = await anthropic.messages.create({
-        model: MODEL,
-        max_tokens: 8192,
-        system,
-        tools: [emitTool],
-        tool_choice: { type: "tool", name: "emit_flows" },
-        messages,
-      })
-      doc = assemble(takeFlows(final))
+      for await (const message of query({
+        prompt: `Explore ${startUrl} with the reprove tools. Start with goto then list_interactive. Visit the important pages and understand login, catalog, product pages, cart/purchase affordances, forms, and navigation. When you have seen enough to propose at least 3 distinct user flows, call emit_flows.`,
+        options: {
+          model: MODEL,
+          systemPrompt: system,
+          mcpServers: { reprove: mcpServer },
+          allowedTools,
+          tools: allowedTools,
+          permissionMode: "bypassPermissions",
+          maxTurns: 60,
+          abortController: abort,
+          cwd: process.cwd(),
+        },
+      })) {
+        if (message.type === "assistant") {
+          for (const block of message.message.content) {
+            if (block.type === "tool_use") console.log(`claude ${block.name}`)
+            else if (block.type === "text" && block.text.trim()) console.log(`claude: ${block.text.trim().slice(0, 160)}`)
+          }
+        } else if (message.type === "result") {
+          if (message.subtype === "success") {
+            console.log(`claude done in ${(message.duration_ms / 1000).toFixed(0)}s cost=$${message.total_cost_usd.toFixed(4)}`)
+          } else {
+            console.log(`claude stopped: ${message.subtype}`)
+          }
+        }
+      }
+    } finally {
+      clearTimeout(wall)
     }
 
+    if (!emitted) throw new Error("exploration ended without emit_flows")
+    const doc = emitted
     await writeFile(out, JSON.stringify(doc, null, 2) + "\n")
     console.log(
       `PASS wrote ${out} flows=${doc.flows.length} pages=${doc.pages.length} intents=${JSON.stringify(doc.flows.map((f) => f.intent))} actions=${actions} elapsedMs=${Date.now() - started}`,

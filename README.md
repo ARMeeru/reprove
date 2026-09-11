@@ -41,15 +41,18 @@ Nobody gates failures on cross-session reproduction. That gate is reprove: a spe
            inlined, also served on a public Solari sandbox preview URL
 ```
 
-Explore and generate run on `claude-sonnet-5` through a tool-use loop with a forced structured emit, so the model cannot hand back broken JSON.
+Explore and generate run on `claude-sonnet-5` through the Claude Code Agent SDK: the model drives the explore tools itself and hands back a validated emit, so it cannot return broken JSON.
 Generated specs typecheck under `tsc --strict` before they are allowed to run, self-contained on `playwright-core`, and connect over CDP to a session the runner owns.
 
 ## Quickstart
 
+Requires Node 22+ and the Claude Code CLI on your PATH (`npm install -g @anthropic-ai/claude-code`).
+
 ```sh
 export SOLARI_API_KEY=slr_live_...    # console.getsolari.com
-export ANTHROPIC_AUTH_TOKEN=sk-ant-oat01-...  # Claude setup token: billed to the subscription, not per-call (explore + generate)
-  # or: export ANTHROPIC_API_KEY=sk-ant-...     # console.anthropic.com pay-per-call fallback
+export ANTHROPIC_AUTH_TOKEN=sk-ant-oat01-...  # Claude setup token: billed to your Claude subscription
+  # or: export ANTHROPIC_API_KEY=sk-ant-...     # metered API fallback
+  # or: neither, if you are already logged in with `claude login`
 
 npm install
 npx tsx src/cli.ts https://your-staging-url.example
