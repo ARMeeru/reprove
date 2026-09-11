@@ -209,7 +209,6 @@ try {
     const sitePassword = process.env.SITE_PASSWORD || ""
     const authEmail = process.env.AUTH_EMAIL || ""
     const authPassword = process.env.AUTH_PASSWORD || ""
-    const GATE_PATH = /site-login|site-password|gate/i
     const GATE_INPUT = 'input[type="password"]'
     const GATE_SUBMIT = 'form button[type="submit"], form button:not([type="button"])'
     const LOGIN_EMAIL = 'input[name="email"], input[type="email"]'
@@ -241,7 +240,14 @@ try {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto(startUrl, { waitUntil: "domcontentloaded", timeout: 20_000 })
     await dismissDialogs()
-    if (GATE_PATH.test(new URL(page.url()).pathname)) {
+    // A site gate is detected structurally, not by URL pattern: the landing
+    // page offers a visible password field and no email field (login pages
+    // ask for both), which describes any password-only gate.
+    const gatePath = new URL(page.url()).pathname
+    const gateIsVisible =
+      (await page.locator(GATE_INPUT).first().isVisible().catch(() => false)) &&
+      !(await page.locator(LOGIN_EMAIL).first().isVisible().catch(() => false))
+    if (gateIsVisible) {
       if (!sitePassword) {
         throw new Error(`landed on a site gate (${page.url()}) but SITE_PASSWORD is not set`)
       }
@@ -251,7 +257,7 @@ try {
       // "load" can hang on third-party scripts in a cloud browser; the gate
       // page itself hard-navigates on success, so domcontentloaded is enough.
       try {
-        await page.waitForURL((u) => !GATE_PATH.test(u.pathname), {
+        await page.waitForURL((u) => u.pathname !== gatePath, {
           timeout: 30_000,
           waitUntil: "domcontentloaded",
         })
@@ -266,7 +272,7 @@ try {
         )
       }
       await snapshot()
-      auth.gate = { urlPattern: "site-login", input: GATE_INPUT, submit: GATE_SUBMIT }
+      auth.gate = { urlPattern: gatePath.replace(/^\//, ""), input: GATE_INPUT, submit: GATE_SUBMIT }
       console.log(`bootstrap: site gate passed -> ${page.url()}`)
     } else {
       await snapshot()
